@@ -17,7 +17,7 @@ RUN apt-get update && \
         # python3-cryptography causes build failure for U-Boot latest,
         # but is required for U-Boot mediatek 
         
-RUN apt-get install libubootenv-tool
+RUN apt-get install -y libubootenv-tool
 
 #FROM base-arm64 as base-amd64
 RUN dpkg --add-architecture arm64 && \
