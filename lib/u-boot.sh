@@ -14,6 +14,8 @@ bsp_reset() {
     BSP_SOC_OVERRIDE=
     BSP_BL31_OVERRIDE=
     BSP_BL31_VARIANT=
+    BSP_BL32_OVERRIDE=
+    BSP_BL32_VARIANT=
     BSP_TRUST_OVERRIDE=
     BSP_BOARD_OVERRIDE=
     BSP_ROCKCHIP_TPL=
@@ -25,6 +27,7 @@ bsp_reset() {
     RKBIN_DDR=
     RKMINILOADER=
     UBOOT_BASE_ADDR=
+    RKBOOT_IDB=
     USE_ATF="false"
 
     BSP_MTK_LK_PROJECT=
@@ -42,6 +45,7 @@ bsp_prepare() {
 
     BSP_SOC_OVERRIDE="${BSP_SOC_OVERRIDE:-"$BSP_SOC"}"
     BSP_BL31_OVERRIDE="${BSP_BL31_OVERRIDE:-"$BSP_SOC"}"
+    BSP_BL32_OVERRIDE="${BSP_BL32_OVERRIDE:-"$BSP_SOC"}"
     BSP_TRUST_OVERRIDE="${BSP_TRUST_OVERRIDE:-"$BSP_SOC"}"
     BSP_BOARD_OVERRIDE="${BSP_BOARD_OVERRIDE:-"$BOARD"}"
 
@@ -81,6 +85,20 @@ bsp_prepare() {
                         echo "Using bl31 $(basename $rkbin_bl31)"
                         BSP_MAKE_EXTRA+=("BL31=$rkbin_bl31")
                     fi
+                fi
+
+                local rkbin_bl32
+                if [[ -n $BSP_BL32_OVERRIDE ]]
+                then
+                    if ! rkbin_bl32=$(find $SCRIPT_DIR/.src/rkbin/bin | grep -e "${BSP_BL32_OVERRIDE}_bl32_${BSP_BL32_VARIANT}" | sort | tail -n 1) || [[ -z $rkbin_bl32 ]]
+                    then
+                        echo "Unable to find prebuilt bl32. The resulting bootloader may not work." >&2
+                    else
+                        echo "Using bl32 $(basename $rkbin_bl32)"
+                        ln -sf "$rkbin_bl32" "$SCRIPT_DIR/.src/u-boot/tee.bin"
+                    fi
+                else
+                    rm -f "$SCRIPT_DIR/.src/u-boot/tee.bin"
                 fi
 
                 if [[ -n $RKBIN_DDR ]]
@@ -180,6 +198,11 @@ bsp_make() {
 
 rkpack_idbloader() {
     local flash_data=
+    if [[ -n $RKBOOT_IDB ]]
+    then
+        echo "Skip rkpack_idbloader. idbloader will be created by rkpack_rkboot."
+        return
+    fi
     if [[ -n $BSP_ROCKCHIP_TPL ]]
     then
         echo "Using rkbin $(basename $BSP_ROCKCHIP_TPL) as TPL"
@@ -245,10 +268,39 @@ rkpack_rkboot() {
     local variant
     for variant in "" "_SPINOR" "_SPI_NAND" "_UART0_SD_NAND"
     do
-        if [[ -f "$SCRIPT_DIR/.src/rkbin/RKBOOT/${BSP_TRUST_OVERRIDE^^}MINIALL$variant.ini" ]]
+        local rkboot_ini="$SCRIPT_DIR/.src/rkbin/RKBOOT/${BSP_TRUST_OVERRIDE^^}MINIALL$variant.ini"
+
+        if [[ ! -f $rkboot_ini ]]
         then
-            $SCRIPT_DIR/.src/rkbin/tools/boot_merger "$SCRIPT_DIR/.src/rkbin/RKBOOT/${BSP_TRUST_OVERRIDE^^}MINIALL$variant.ini"
-            mv ./*_loader_*.bin "$SCRIPT_DIR/.root/usr/lib/u-boot/$BSP_BOARD_OVERRIDE/rkboot$variant.bin"
+            continue
+        fi
+
+        if [[ -n $RKBOOT_IDB ]]
+        then
+            sed -i "s|FlashBoot=.*$|FlashBoot=${SCRIPT_DIR}/.src/u-boot/spl/u-boot-spl.bin|g" "$rkboot_ini"
+        fi
+
+        $SCRIPT_DIR/.src/rkbin/tools/boot_merger "$rkboot_ini"
+        mv ./*_loader_*.bin "$SCRIPT_DIR/.root/usr/lib/u-boot/$BSP_BOARD_OVERRIDE/rkboot$variant.bin"
+
+        if [[ -n $RKBOOT_IDB ]]
+        then
+            local idb_variant
+            case "$variant" in
+                "_SPINOR")
+                    idb_variant="-spi_spl"
+                    ;;
+                "_SPI_NAND")
+                    idb_variant="-spi_nand"
+                    ;;
+                "_UART0_SD_NAND")
+                    idb_variant="-sd_nand"
+                    ;;
+                "")
+                    idb_variant=""
+                    ;;
+            esac
+            mv ./"$RKBOOT_IDB"* "$TARGET_DIR/idbloader$idb_variant.img"
         fi
     done
     popd
