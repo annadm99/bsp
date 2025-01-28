@@ -6,7 +6,7 @@ Subject: [PATCH] VENDOR: Add Radxa overlays
 Signed-off-by: Yuntian Zhang <yt@radxa.com>
 ---
  arch/arm64/boot/dts/amlogic/Makefile  |  5 +++++
- arch/arm64/boot/dts/rockchip/Makefile | 18 +++++++++++++++--
+ arch/arm64/boot/dts/rockchip/Makefile | 19 ++++++++++++++++--
  scripts/Makefile.dtbinst 			   | 11 +++++++----
  scripts/Makefile.lib                  |  6 ++++++
  4 files changed, 34 insertions(+), 6 deletions(-)
