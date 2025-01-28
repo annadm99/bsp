@@ -43,6 +43,7 @@ index 7cccbd7c6e..69399d2d41 100644
 +DTC_FLAGS_rk3588-rock-5b := -@
 +DTC_FLAGS_rk3588-rock-5b-v11 := -@
 +DTC_FLAGS_rk3588s-rock-5a := -@
++DTC_FLAGS_rk3566-radxa-cm3-io := -@
 +
 +subdir-y += overlays
 +
